@@ -1,0 +1,19 @@
+{
+  "name": "@internal/docker-open-api",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "devDependencies": {
+    "@hey-api/client-axios": "^0.9.1",
+    "@hey-api/openapi-ts": "^0.77.0"
+  },
+  "scripts": {
+    "openapi:generate": "openapi-ts",
+    "prepare": "tsc"
+  },
+  "author": "",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.10.0"
+  }
+}
