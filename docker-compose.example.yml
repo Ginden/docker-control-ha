@@ -1,0 +1,15 @@
+services:
+  docker-control-ha:
+    image: ghcr.io/ginden/docker-control-ha
+    container_name: docker-control-ha
+    restart: unless-stopped
+    environment:
+      MQTT_HOST: localhost
+      MQTT_PORT: 1883
+      # MQTT_USERNAME: user
+      # MQTT_PASSWORD: password
+      DOCKER_SOCKET_PATH: /var/run/docker.sock
+      ENABLE_CONTROL: "true"
+      LOG_LEVEL: info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
