@@ -21,7 +21,13 @@ This application allows you to monitor and control Docker containers from Home A
 
 ## Configuration
 
-The application is configured using environment variables. Below is a list of all available options:
+The application is configured using environment variables. You can either pass them directly to the Docker container or use a `.env` file.
+
+You can use the provided [`./.env.full.example`](./.env.full.example) or [`./.env.minimal.example`](./.env.minimal.example) files as a starting point. Simply copy one of them to `.env` and customize the values.
+
+By default, the application will look for a `.env` file in the root of the project. You can use the `CUSTOM_CONFIG_PATH` environment variable to specify a different path.
+
+Below is a list of all available options:
 
 | Variable | Description | Default |
 | --- | --- | --- |
@@ -40,10 +46,11 @@ The application is configured using environment variables. Below is a list of al
 | `EXPOSE_DAEMON_INFO` | Whether to expose information about the Docker daemon. | `true` |
 | `DAEMON_CONTROLLER_NAME` | The name of the Docker daemon device in Home Assistant. | `Docker Daemon` |
 | `UPTIME_MEASURE_TYPE` | The unit of measurement for container uptime. | `human` |
+| `CUSTOM_CONFIG_PATH` | The path to a custom configuration file. See [Configuration file](#configuration-file) for more details. | |
 
 ## Docker Compose Example
 
-Here is a sample `docker-compose.yml` file to run the application:
+Here is a sample [`docker-compose.yml`](./docker-compose.example.yml) file to run the application:
 
 ```yaml
 services:
@@ -68,6 +75,25 @@ services:
 1.  Create a `docker-compose.yml` file based on the example above.
 2.  Customize the environment variables to match your setup.
 3.  Run `docker-compose up -d` to start the application in the background.
+
+## Configuration file
+
+If you want to use a custom configuration file, you can specify its path using the `CUSTOM_CONFIG_PATH` environment variable. The file should be a `.env` file.
+
+Example `config.env`:
+
+```dotenv
+MQTT_HOST=localhost
+MQTT_PORT=1883
+```
+
+Then, you can run the application with:
+
+```bash
+docker run -e CUSTOM_CONFIG_PATH=/app/config.env -v /path/to/your/config.env:/app/config.env your-image-name
+```
+
+
 
 ## Exposed Entities
 
