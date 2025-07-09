@@ -34,7 +34,7 @@ async function updateDaemonState() {
     logger.error({ msg: 'Failed to fetch system info' });
     return;
   }
-  deamonWrapper ??= new DaemonWrapper(manager, client, systemInfo!);
+  deamonWrapper ??= new DaemonWrapper(manager,  systemInfo!);
   await deamonWrapper.update(systemInfo!);
   await deamonWrapper.updateUnhealthyContainersList(Object.values(containersMap));
 }
@@ -75,7 +75,11 @@ async function reloadContainersMap() {
 
 function unregisterAll() {
   logger.info({ msg: 'Unregistering all containers' });
-  return Promise.all(Object.values(containersMap).map((wrapper) => wrapper.unregister()));
+  const entities = [
+      ...Object.values(containersMap).map((wrapper) => wrapper.unregister()),
+        deamonWrapper ? deamonWrapper.unregister() : Promise.resolve(),
+  ]
+  return Promise.all(entities);
 }
 
 const unregisterAllAndExit = () => unregisterAll().then(() => process.exit());
