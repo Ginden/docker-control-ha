@@ -11,13 +11,13 @@ This application allows you to monitor and control Docker containers from Home A
 
 ## Screenshots
 
-*Main device view in Home Assistant:*
+*Main daemon view in Home Assistant:*
 
-// TODO: add this
+![Main daemon view](./docs/daemon-view.png)
 
 *Container controls:*
 
-// TODO: add this
+![Container controls](./docs/container-view.png)
 
 ## Configuration
 
@@ -65,9 +65,21 @@ services:
       # MQTT_PASSWORD: password
       DOCKER_SOCKET_PATH: /var/run/docker.sock
       ENABLE_CONTROL: "true"
-      LOG_LEVEL: info
+      LOG_LEVEL: warn
+      # These are important (!!!) so your entity IDs are stable across restarts
+      HA_DEVICE_ID_PREFIX: "docker_your_name_"
+      DAEMON_CONTROLLER_NAME: "Docker Daemon on LocalServer"
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+```
+
+By default, container runs as `root` user which is required to access the Docker socket. If you want to run it as a different user, you need to specify the `user` option in the `docker-compose.yml` file.
+
+```yaml
+    user: "1000:1000"  # Replace with your user and group ID
+    group_add:
+      - "1000"  # Replace with your group ID (`getent group docker` to find out)
 ```
 
 ## Running the Application

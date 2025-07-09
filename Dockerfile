@@ -46,6 +46,4 @@ COPY --from=builder /app/node_modules/ ./node_modules/
 COPY --from=builder /app/packages/docker-open-api/ ./node_modules/@internal/docker-open-api/
 COPY package.json ./
 
-USER node
-
 ENTRYPOINT ["npm", "start"]

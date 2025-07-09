@@ -1,10 +1,21 @@
 import { sdk as api, createClient } from '@internal/docker-open-api';
 import axios, { AxiosStatic } from 'axios';
-import { statSync } from 'node:fs';
+import {accessSync, statSync} from 'node:fs';
 import { assert } from 'tsafe';
 import * as child_process from 'node:child_process';
 import { logger } from './logger.mjs';
 import { config } from './config/config.mjs';
+import * as fs from "node:fs";
+
+
+function assertSocketUsable(socketPath: string): void {
+  const stats = statSync(socketPath);
+    assert(
+        stats.isSocket(),
+        `Expected ${socketPath} to be a socket, but it is not. Please check your Docker setup.`,
+    );
+    accessSync(socketPath, fs.constants.R_OK | fs.constants.W_OK);
+}
 
 /**
  * Creates an Axios client configured to communicate with the Docker daemon via a Unix socket.
@@ -34,16 +45,13 @@ function getSocketPath(): string {
   }
   // If an environment variable is provided, validate and use it.
   if (envSocketPath) {
-    assert(
-      statSync(envSocketPath).isSocket(),
-      `DOCKER_SOCKET_PATH must point to a socket file, but got: ${envSocketPath}`,
-    );
+    assertSocketUsable(envSocketPath);
     return envSocketPath;
   }
   const defaultSocketPath = '/var/run/docker.sock';
   try {
     // Attempt to use the default path if it exists and is a socket.
-    assert(statSync(defaultSocketPath).isSocket());
+    assertSocketUsable(defaultSocketPath);
     logger.debug(`Using default Docker socket path: ${defaultSocketPath}`);
     return defaultSocketPath;
   } catch (error) {
@@ -63,10 +71,7 @@ function getSocketPath(): string {
           socketPath: context.Endpoints.docker.Host,
         });
         const filePath = new URL(context.Endpoints.docker!.Host!).pathname;
-        assert(
-          statSync(filePath).isSocket(),
-          `Docker context socket path is not a socket: ${filePath}`,
-        );
+        assertSocketUsable(filePath);
         return filePath;
       } else {
         logger.warn({
