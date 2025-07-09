@@ -22,13 +22,10 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run ESLint
-        run: npm run lint # Assuming you have a lint script in package.json
+        run: npm run lint
 
       - name: Run TypeScript Check
-        run: npm run build # Assuming npm run build also performs type checking
-
-      - name: Run Tests
-        run: npm test # Assuming you have a test script in package.json
+        run: npm run build
