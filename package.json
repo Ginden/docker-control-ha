@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "prepare": "npm run build",
-    "test": "vitest",
+    "lint": "eslint src",
     "start": "node dist/index.mjs",
     "build": "tsc",
     "prettier": "prettier --write src"
@@ -34,6 +34,7 @@
     "prettier": "^3.6.2",
     "type-fest": "^4.41.0",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.36.0",
     "vitest": "^3.2.4"
   },
   "dependencies": {

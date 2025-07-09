@@ -76,7 +76,9 @@ process.on('SIGINT', unregisterAllAndExit);
 process.on('SIGTERM', unregisterAllAndExit);
 
 // Start the periodic reconciliation loop.
-setInterval(() => reconcileState().catch(console.error), config.POLLING_INTERVAL);
+setInterval(() => reconcileState().catch(err => logger.warn({msg: `Failed to reload state`, err})), config.POLLING_INTERVAL);
 
 // Initial reconciliation call on application startup.
-reconcileState().catch(console.error);
+reconcileState().catch(err => {
+  logger.error({ msg: 'Failed to reload state on startup', err });
+});

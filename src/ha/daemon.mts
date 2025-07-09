@@ -10,7 +10,6 @@ import { config } from '../config/config.mjs';
 import slug from 'slug';
 import { sdk } from '@internal/docker-open-api';
 import { ContainerWrapper } from './container.mjs';
-import { DockerApiClient } from '../docker-api-client.mjs';
 
 export const DAEMON_INFO_NAME =
   config.HA_DEVICE_ID_PREFIX + 'daemon_' + slug(config.DAEMON_CONTROLLER_NAME);

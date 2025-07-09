@@ -97,7 +97,7 @@ export class ContainerManager {
       const containerDetails = await this.dockerApiClient.containerInspect({ path: { id: containerId } });
       return containerDetails.data!;
     } catch (error) {
-      console.error(`Failed to inspect container ${containerId}:`, error);
+      logger.error(`Failed to inspect container`, {containerId, error});
       return null;
     }
   }

@@ -1,5 +1,4 @@
-import { connect, MqttProtocol } from 'mqtt';
-import { hostname } from 'node:os';
+import { connect } from 'mqtt';
 import { config } from './config/config.mjs';
 
 const server = config.MQTT_HOST;

@@ -11,19 +11,12 @@ import {
 import { sdk } from '@internal/docker-open-api';
 import { config } from '../config/config.mjs';
 import { DockerApiClient } from '../docker-api-client.mjs';
-import slug from 'slug';
 import { assert } from 'tsafe';
 import { formatUptime } from '../utils/format-uptime.mjs';
 import { calculateDeviceId } from '../utils/calculate-device-id.mjs';
 import { logger } from '../logger.mjs';
 import { DAEMON_INFO_NAME } from './daemon.mjs';
 import { extractManufacturer, extractModel, extractSwVersion } from '../utils/extract-info.mjs';
-
-type ContainerConstructOptions = {
-  ha: HaDiscoverableManager;
-  data: sdk.ContainerInspectResponse;
-  dockerApiClient: DockerApiClient;
-};
 
 /**
  * Wraps a Docker container to expose it as a Home Assistant entity.

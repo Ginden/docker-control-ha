@@ -47,8 +47,13 @@ function getSocketPath(): string {
     logger.debug(`Using default Docker socket path: ${defaultSocketPath}`);
     return defaultSocketPath;
   } catch (error) {
-    // If default path fails, inspect Docker contexts for compatibility with non-standard setups.
+    logger.warn({
+      msg: `Default Docker socket path not found or not a socket: ${defaultSocketPath}`,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    // If a default path fails, inspect Docker contexts for compatibility with non-standard setups.
     const { stdout } = child_process.spawnSync('docker', ['context', 'inspect']);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const contexts = JSON.parse(stdout.toString()) as Record<string, any>[];
     for (const context of contexts) {
       if (context.Endpoints?.docker) {
@@ -63,6 +68,11 @@ function getSocketPath(): string {
           `Docker context socket path is not a socket: ${filePath}`,
         );
         return filePath;
+      } else {
+        logger.warn({
+          msg: `Docker context ${context.Name} does not have a valid socket endpoint`,
+          context,
+        });
       }
     }
 
@@ -81,21 +91,24 @@ export type DockerApiClient = typeof api;
 export function createDockerApiClient(): typeof api {
   const dockerSocketPath = getSocketPath();
   const axiosClient = createSocketClient(dockerSocketPath);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ret: any = {};
 
   // Wrap auto-generated API methods to inject the custom Axios client.
   for (const [key, value] of Object.entries(api)) {
     if (typeof value === 'function') {
-      ret[key] = (firstArg: any, ...args: any[]) => {
-        firstArg = firstArg ?? {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ret[key] = (firstArg: any, ...args: unknown[]) => {
+        firstArg ??= {};
         firstArg.client ??= axiosClient; // Inject the custom Axios client.
-        // @ts-expect-error
+        // @ts-expect-error We know what we're doing here.
         return value(firstArg, ...args);
       };
     } else {
       // Re-expose non-function properties.
       Object.defineProperty(ret, key, {
         get: () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return (api as any)[key];
         },
       });
