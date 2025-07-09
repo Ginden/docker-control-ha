@@ -1,20 +1,19 @@
 import { sdk as api, createClient } from '@internal/docker-open-api';
 import axios, { AxiosStatic } from 'axios';
-import {accessSync, statSync} from 'node:fs';
+import { accessSync, statSync } from 'node:fs';
 import { assert } from 'tsafe';
 import * as child_process from 'node:child_process';
 import { logger } from './logger.mjs';
 import { config } from './config/config.mjs';
-import * as fs from "node:fs";
-
+import * as fs from 'node:fs';
 
 function assertSocketUsable(socketPath: string): void {
   const stats = statSync(socketPath);
-    assert(
-        stats.isSocket(),
-        `Expected ${socketPath} to be a socket, but it is not. Please check your Docker setup.`,
-    );
-    accessSync(socketPath, fs.constants.R_OK | fs.constants.W_OK);
+  assert(
+    stats.isSocket(),
+    `Expected ${socketPath} to be a socket, but it is not. Please check your Docker setup.`,
+  );
+  accessSync(socketPath, fs.constants.R_OK | fs.constants.W_OK);
 }
 
 /**
