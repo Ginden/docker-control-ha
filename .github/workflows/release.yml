@@ -28,10 +28,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use a stable Node.js version
+          node-version: '22'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Configure Git
         run: |
@@ -42,7 +42,7 @@ jobs:
         id: bump_version
         run: |
           npm version ${{ github.event.inputs.version_type }}
-          echo "new_version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+          echo "new_version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Push changes and tags
         run: |
