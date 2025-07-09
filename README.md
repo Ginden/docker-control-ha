@@ -67,6 +67,7 @@ services:
       # MQTT_PASSWORD: password
       DOCKER_SOCKET_PATH: /var/run/docker.sock
       ENABLE_CONTROL: "true"
+      EXPOSE_DAEMON_INFO: "true"
       LOG_LEVEL: warn
       # These are important (!!!) so your entity IDs are stable across restarts
       HA_DEVICE_ID_PREFIX: "docker_your_name_"
@@ -83,6 +84,15 @@ By default, container runs as `root` user which is required to access the Docker
     group_add:
       - "1000"  # Replace with your group ID (`getent group docker` to find out)
 ```
+
+### Rootless Docker
+
+To find out location of the Docker socket in rootless mode, you can run the following command:
+
+```bash
+docker context inspect | jq '.[].Endpoints.docker.Host' -r
+```
+
 
 ## Running the Application
 
