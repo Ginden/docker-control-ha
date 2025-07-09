@@ -57,8 +57,9 @@ export class DaemonWrapper {
    */
   async unregister() {
     await Promise.all([
-        ...Object.values(this.sensors).map((sensor) => sensor.unregister()),
-        ...Object.values(this.buttons).map((button) => button.unregister()),]);
+      ...Object.values(this.sensors).map((sensor) => sensor.unregister()),
+      ...Object.values(this.buttons).map((button) => button.unregister()),
+    ]);
   }
 
   /**

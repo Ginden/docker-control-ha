@@ -6,7 +6,7 @@ const port = config.MQTT_PORT;
 const username = config.MQTT_USERNAME;
 const password = config.MQTT_PASSWORD;
 // Determine MQTT protocol based on configuration or default to mqtts for port 8883.
-const protocol = config.MQTT_PROTOCOL ? config.MQTT_PROTOCOL : (port === 8883 ? 'mqtts' : 'mqtt');
+const protocol = config.MQTT_PROTOCOL ? config.MQTT_PROTOCOL : port === 8883 ? 'mqtts' : 'mqtt';
 const clientId = config.MQTT_CLIENT_ID;
 
 const mqttUrl = `${protocol}://${server}:${port}`;

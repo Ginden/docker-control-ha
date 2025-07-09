@@ -9,7 +9,7 @@
     "lint": "eslint src",
     "start": "node dist/index.mjs",
     "build": "tsc",
-    "prettier": "prettier --write src"
+    "prettier": "prettier --write src .github/workflows"
   },
   "repository": {
     "type": "git",

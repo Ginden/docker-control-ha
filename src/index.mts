@@ -20,7 +20,7 @@ const haManager = HaDiscoverableManager.withSettings({
     info: logger.debug.bind(logger),
     warn: logger.info.bind(logger),
     error: logger.warn.bind(logger),
-  }
+  },
 });
 
 // Initialize ContainerManager to handle Docker container entities in Home Assistant.
@@ -66,7 +66,10 @@ async function reconcileState() {
 async function unregisterAll() {
   logger.info({ msg: 'Unregistering all entities' });
   // Unregister both container and daemon entities concurrently.
-  return Promise.all([containerManager.unregisterAll(), daemonWrapper ? daemonWrapper.unregister() : Promise.resolve()]);
+  return Promise.all([
+    containerManager.unregisterAll(),
+    daemonWrapper ? daemonWrapper.unregister() : Promise.resolve(),
+  ]);
 }
 
 // Graceful shutdown handling for SIGINT and SIGTERM signals.
@@ -76,9 +79,12 @@ process.on('SIGINT', unregisterAllAndExit);
 process.on('SIGTERM', unregisterAllAndExit);
 
 // Start the periodic reconciliation loop.
-setInterval(() => reconcileState().catch(err => logger.warn({msg: `Failed to reload state`, err})), config.POLLING_INTERVAL);
+setInterval(
+  () => reconcileState().catch((err) => logger.warn({ msg: `Failed to reload state`, err })),
+  config.POLLING_INTERVAL,
+);
 
 // Initial reconciliation call on application startup.
-reconcileState().catch(err => {
+reconcileState().catch((err) => {
   logger.error({ msg: 'Failed to reload state on startup', err });
 });

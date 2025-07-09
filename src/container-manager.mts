@@ -1,4 +1,3 @@
-
 import { HaDiscoverableManager } from '@ginden/ha-mqtt-discoverable';
 import { sdk } from '@internal/docker-open-api';
 import { config } from './config/config.mjs';
@@ -59,13 +58,23 @@ export class ContainerManager {
         }
 
         // Skip containers without the required label if configured, for selective exposure.
-        if (config.REQUIRE_LABEL_TO_EXPOSE && !containerInfo.Config?.Labels?.[config.REQUIRE_LABEL_TO_EXPOSE]) {
-          logger.debug({ msg: `Skipping container ${containerId} due to missing required label`, containerInfo });
+        if (
+          config.REQUIRE_LABEL_TO_EXPOSE &&
+          !containerInfo.Config?.Labels?.[config.REQUIRE_LABEL_TO_EXPOSE]
+        ) {
+          logger.debug({
+            msg: `Skipping container ${containerId} due to missing required label`,
+            containerInfo,
+          });
           return;
         }
 
         // Create or retrieve ContainerWrapper for the Docker container.
-        this.containersMap[containerId] ??= new ContainerWrapper(this.ha, containerInfo, this.dockerApiClient);
+        this.containersMap[containerId] ??= new ContainerWrapper(
+          this.ha,
+          containerInfo,
+          this.dockerApiClient,
+        );
         // Update the wrapper to propagate state changes to Home Assistant.
         await this.containersMap[containerId].update(containerInfo);
       }),
@@ -92,12 +101,16 @@ export class ContainerManager {
    * @param containerId The ID of the container to inspect.
    * @returns Container inspect response, or null on error (error is logged).
    */
-  private async getContainerDetails(containerId: string): Promise<sdk.ContainerInspectResponse | null> {
+  private async getContainerDetails(
+    containerId: string,
+  ): Promise<sdk.ContainerInspectResponse | null> {
     try {
-      const containerDetails = await this.dockerApiClient.containerInspect({ path: { id: containerId } });
+      const containerDetails = await this.dockerApiClient.containerInspect({
+        path: { id: containerId },
+      });
       return containerDetails.data!;
     } catch (error) {
-      logger.error(`Failed to inspect container`, {containerId, error});
+      logger.error(`Failed to inspect container`, { containerId, error });
       return null;
     }
   }

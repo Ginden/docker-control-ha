@@ -1,6 +1,6 @@
 name: Release
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       version_type:
@@ -84,9 +84,9 @@ jobs:
           name: Release v${{ steps.bump_version.outputs.new_version }}
           body: |
             ## Release v${{ steps.bump_version.outputs.new_version }}
-            
+
             This release includes:
-            
+
             * Automated version bump
             * Docker image published to ghcr.io
             * GitHub Release created

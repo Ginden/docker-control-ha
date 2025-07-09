@@ -19,8 +19,8 @@ export const envSchema = z.object({
   // MQTT_PROTOCOL: Protocol to use (e.g., mqtt, mqtts, ws, wss). Defaults to unsecured MQTT.
   MQTT_PROTOCOL: z
     .enum(['mqtt', 'mqtts', 'ws', 'wss', 'alis'] as const satisfies MqttProtocol[])
-      .optional()
-      .nullish()
+    .optional()
+    .nullish()
     .default(null),
   // MQTT_CLIENT_ID: Client ID for MQTT. Defaults to a unique ID to prevent conflicts.
   MQTT_CLIENT_ID: z.string().default(`ha-docker-api-${hostname()}`),
