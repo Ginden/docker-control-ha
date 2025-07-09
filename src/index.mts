@@ -40,7 +40,7 @@ async function updateDaemonState() {
   }
   const { data: systemInfo } = await client.systemInfo();
   if (!systemInfo) {
-    logger.error({ msg: 'Failed to fetch system info' });
+    logger.error({ msg: 'Failed to fetch system info (empty response)' });
     return;
   }
   // Initialize DaemonWrapper if it doesn't exist, passing the reconcileState function for refresh capability.

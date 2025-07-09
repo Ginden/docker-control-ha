@@ -33,6 +33,8 @@ export class ContainerManager {
       query: { all: config.INCLUDE_DEAD_CONTAINERS },
     });
 
+    logger.debug({ msg: `Found ${containers.length} containers` });
+
     // Use sets for efficient identification of added, removed, and existing containers.
     const oldContainerIds = new Set(Object.keys(this.containersMap));
     const currentContainerIds = new Set(containers.map((c) => c.Id!).filter(Boolean));
@@ -48,12 +50,17 @@ export class ContainerManager {
     await Promise.all(
       containers.map(async (container) => {
         if (!container.Id) {
+          logger.debug({ msg: 'Skipping container with no ID', container });
           return;
         }
         const containerId = container.Id;
         // Fetch detailed info for HA entity creation/updates.
         const containerInfo = await this.getContainerDetails(containerId);
         if (!containerInfo) {
+          logger.debug({
+            msg: `Skipping container ${containerId} due to missing details`,
+            container: { id: containerId, name: container.Names },
+          });
           return;
         }
 
