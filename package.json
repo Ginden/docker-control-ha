@@ -1,6 +1,6 @@
 {
   "name": "docker-control-ha",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "App to control Docker containers from Home Assistant",
   "main": "dist/index.mjs",
   "type": "module",
