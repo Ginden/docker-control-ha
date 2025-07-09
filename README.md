@@ -2,6 +2,8 @@
 
 This application allows you to monitor and control Docker containers from Home Assistant using MQTT discovery.
 
+It's built on top of my [ha-mqtt-discoverable](https://github.com/Ginden/node-ha-mqtt-discoverable) library, which provides a simple way to create MQTT-discoverable entities in Home Assistant.
+
 ## Features
 
 - **Container Discovery:** Automatically discovers running Docker containers and creates corresponding entities in Home Assistant.
