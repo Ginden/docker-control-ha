@@ -65,8 +65,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.bump_version.outputs.new_version }}
+            ghcr.io/ginden/docker-control-ha:latest
+            ghcr.io/ginden/docker-control-ha:${{ steps.bump_version.outputs.new_version }}
           build-args: |
             BUILD_DATE=${{ github.event.repository.pushed_at }}
             VCS_REF=${{ github.sha }}
@@ -75,7 +75,7 @@ jobs:
       - name: Make Docker image public
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh package visibility ghcr.io/${{ github.repository }} --public
+        run: gh package visibility ghcr.io/ginden/docker-control-ha --public
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
