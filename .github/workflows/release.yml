@@ -72,11 +72,6 @@ jobs:
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.bump_version.outputs.new_version }}
 
-      - name: Make Docker image public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh package visibility ghcr.io/ginden/docker-control-ha --public
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
