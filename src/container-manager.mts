@@ -46,7 +46,12 @@ export class ContainerManager {
     // Unregister stale entities from Home Assistant.
     if (removedContainerIds.length > 0) {
       logger.info({ msg: `Removing deleted or stopped containers`, removedContainerIds });
-      await Promise.all(removedContainerIds.map(async (id) => this.containersMap[id].unregister()));
+      await Promise.all(
+        removedContainerIds.map(async (id) => {
+          await this.containersMap[id].unregister();
+          delete this.containersMap[id];
+        }),
+      );
     }
 
     // Process each current container: add new ones, update existing ones.
