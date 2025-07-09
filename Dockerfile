@@ -9,6 +9,13 @@ COPY packages/ ./packages/
 
 RUN npm ci
 
+# Build the workspace package
+WORKDIR /app/packages/docker-open-api
+RUN npm run build
+
+# Return to the root workdir
+WORKDIR /app
+
 COPY src/ ./src/
 
 RUN npm run build
@@ -35,8 +42,10 @@ LABEL org.opencontainers.image.description="App to control Docker containers fro
 
 COPY --from=builder /app/dist/ ./dist/
 COPY --from=builder /app/node_modules/ ./node_modules/
-COPY --from=builder /app/package.json ./
+# TODO: this a workaround - how to fix it properly?
+COPY --from=builder /app/packages/docker-open-api/ ./node_modules/@internal/docker-open-api/
+COPY package.json ./
 
 USER node
 
-ENTRYPOINT ["node", "dist/index.mjs"]
+ENTRYPOINT ["npm", "start"]
