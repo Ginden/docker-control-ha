@@ -72,9 +72,27 @@ services:
 
 ## Running the Application
 
+### Docker Compose
+
 1.  Create a `docker-compose.yml` file based on the example above.
 2.  Customize the environment variables to match your setup.
 3.  Run `docker-compose up -d` to start the application in the background.
+
+### Docker Run (minimal example)
+
+For a quick test, you can run the container directly using `docker run`:
+
+```bash
+docker run \
+  --rm \
+  --name docker-control-ha \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e MQTT_HOST=your_mqtt_broker_ip \
+  ghcr.io/ginden/docker-control-ha
+```
+
+Replace `your_mqtt_broker_ip` with the IP address or hostname of your MQTT broker.
+
 
 ## Configuration file
 
