@@ -1,38 +1,42 @@
-# Use a multi-stage build to keep the final image small
 FROM node:22-alpine AS builder
 
-# Set the working directory
 WORKDIR /app
 
-# Copy package configuration files
 COPY package.json package-lock.json ./
 COPY tsconfig.json ./
 
-# Copy packages directory for workspace dependencies
 COPY packages/ ./packages/
 
-# Install dependencies
-RUN npm install
+RUN npm ci
 
-# Copy the source code
 COPY src/ ./src/
 
-# Build the application
 RUN npm run build
 
 # Use a slim base image for the final image
 FROM node:22-alpine
 
-# Set the working directory
 WORKDIR /app
 
-# Copy the built application from the builder stage
+# Define arguments for OpenContainers annotations
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+# Apply OpenContainers annotations
+LABEL org.opencontainers.image.created=${BUILD_DATE}
+LABEL org.opencontainers.image.source="https://github.com/Ginden/docker-control-ha"
+LABEL org.opencontainers.image.version=${VERSION}
+LABEL org.opencontainers.image.revision=${VCS_REF}
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.vendor="Michał Wadas"
+LABEL org.opencontainers.image.title="Docker Control for Home Assistant"
+LABEL org.opencontainers.image.description="App to control Docker containers from Home Assistant"
+
 COPY --from=builder /app/dist/ ./dist/
 COPY --from=builder /app/node_modules/ ./node_modules/
 COPY --from=builder /app/package.json ./
 
-# Run the application as a non-root user
 USER node
 
-# Set the entrypoint
 ENTRYPOINT ["node", "dist/index.mjs"]

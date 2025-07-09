@@ -9,15 +9,15 @@ import {
   SensorInfo,
 } from '@ginden/ha-mqtt-discoverable';
 import { sdk } from '@internal/docker-open-api';
-import { config } from './config.mjs';
-import { DockerApiClient } from './client.mjs';
+import { config } from '../config/config.mjs';
+import { DockerApiClient } from '../docker-api-client.mjs';
 import slug from 'slug';
 import { assert } from 'tsafe';
-import { formatUptime } from './utils/format-uptime.mjs';
-import { calculateDeviceId } from './utils/calculate-device-id.mjs';
-import { logger } from './logger.mjs';
-import { DAEMON_INFO_NAME } from './daemon.js';
-import { extractManufacturer, extractModel, extractSwVersion } from './utils/extract-info.mjs';
+import { formatUptime } from '../utils/format-uptime.mjs';
+import { calculateDeviceId } from '../utils/calculate-device-id.mjs';
+import { logger } from '../logger.mjs';
+import { DAEMON_INFO_NAME } from './daemon.mjs';
+import { extractManufacturer, extractModel, extractSwVersion } from '../utils/extract-info.mjs';
 
 type ContainerConstructOptions = {
   ha: HaDiscoverableManager;
@@ -25,28 +25,9 @@ type ContainerConstructOptions = {
   dockerApiClient: DockerApiClient;
 };
 
-function extractVersionFromImage(image: string): string | null {
-  if (!image) {
-    return null;
-  }
-  const lastPart = image.split(':').pop();
-  if (!lastPart) {
-    return null;
-  }
-  const typicalImageNames = new Set(['stable', 'latest', 'latest-stable', 'master', 'main']);
-  if (typicalImageNames.has(lastPart)) {
-    return null; // This is a typical image name, not a version
-  }
-  const versionsNumbers = lastPart.match(/^\d+(\.\d+)*$/);
-  if (versionsNumbers) {
-    return versionsNumbers.join('.');
-  }
-
-  return null; // Not a recognized version format
-}
-
 /**
- * Class to wrap a container, both as HA entity and as a Docker container.
+ * Wraps a Docker container to expose it as a Home Assistant entity.
+ * Manages the creation and updating of various sensors and controls for the container.
  */
 export class ContainerWrapper {
   public readonly deviceInfo: DeviceInfo;
@@ -62,6 +43,11 @@ export class ContainerWrapper {
   private commands: Record<string, Button> = {};
   private readonly viaDevice = config.EXPOSE_DAEMON_INFO ? DAEMON_INFO_NAME : undefined;
 
+  /**
+   * @param ha The Home Assistant Discoverable Manager instance.
+   * @param data Initial Docker container inspect data.
+   * @param dockerApiClient The Docker API client.
+   */
   public constructor(
     private readonly ha: HaDiscoverableManager,
     data: sdk.ContainerInspectResponse,
@@ -85,12 +71,21 @@ export class ContainerWrapper {
     });
   }
 
+  /**
+   * Updates the Home Assistant entities for the container based on new Docker inspect data.
+   * This method is called periodically to keep HA in sync with the container's state.
+   * @param data The latest Docker container inspect data.
+   */
   public async update(data: sdk.ContainerInspectResponse): Promise<void> {
     logger.debug({ msg: `Updating container`, containerId: data.Id, containerName: data.Name });
     await this.constructSubEntities(data);
     await this.exposeCommands(data);
   }
 
+  /**
+   * Unregisters all Home Assistant entities associated with this container.
+   * Called when a container is removed or the application is shutting down.
+   */
   public async unregister(): Promise<void> {
     logger.info({ msg: `Unregistering container`, container: this.deviceInfo.identifiers![0] });
     const subEntities = [
@@ -110,6 +105,10 @@ export class ContainerWrapper {
     );
   }
 
+  /**
+   * Constructs or updates the core Home Assistant sensors for the container (running, uptime, health, image).
+   * @param data The Docker container inspect data.
+   */
   private async constructSubEntities(data: sdk.ContainerInspectResponse) {
     this.unhealthy = data.State?.Health?.Status === 'unhealthy' || !data.State?.Running;
     await this.setRunning(data);
@@ -209,6 +208,11 @@ export class ContainerWrapper {
     }
   }
 
+  /**
+   * Exposes control buttons (restart, pause, kill, stop, start) for the container to Home Assistant.
+   * These buttons allow users to perform actions on the Docker container directly from HA.
+   * @param data The Docker container inspect data.
+   */
   private async exposeCommands(data: sdk.ContainerInspectResponse) {
     if (!config.ENABLE_CONTROL) {
       return;

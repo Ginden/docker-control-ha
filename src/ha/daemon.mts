@@ -6,15 +6,19 @@ import {
   Sensor,
   SensorInfo,
 } from '@ginden/ha-mqtt-discoverable';
-import { config } from './config.mjs';
+import { config } from '../config/config.mjs';
 import slug from 'slug';
 import { sdk } from '@internal/docker-open-api';
-import { ContainerWrapper } from './container-wrapper.mjs';
-import { DockerApiClient } from './client.mjs';
+import { ContainerWrapper } from './container.mjs';
+import { DockerApiClient } from '../docker-api-client.mjs';
 
 export const DAEMON_INFO_NAME =
   config.HA_DEVICE_ID_PREFIX + 'daemon_' + slug(config.DAEMON_CONTROLLER_NAME);
 
+/**
+ * Manages the Docker daemon as a Home Assistant device.
+ * Exposes daemon-level sensors (e.g., container counts) and control buttons (e.g., refresh).
+ */
 export class DaemonWrapper {
   private readonly deviceInfo: DeviceInfo;
   private unhealthyContainers?: Sensor;
@@ -22,9 +26,15 @@ export class DaemonWrapper {
   private buttons: Record<string, Button> = {};
   private readonly identifier = DAEMON_INFO_NAME;
 
+  /**
+   * @param ha The Home Assistant Discoverable Manager instance.
+   * @param info Initial Docker system info.
+   * @param reconcileState A callback to trigger a full state reconciliation in the main application loop.
+   */
   constructor(
     private readonly ha: HaDiscoverableManager,
     info: sdk.SystemInfoResponse,
+    private readonly reconcileState: () => Promise<void>,
   ) {
     this.deviceInfo = DeviceInfo.create({
       name: config.DAEMON_CONTROLLER_NAME,
@@ -33,17 +43,29 @@ export class DaemonWrapper {
     });
   }
 
+  /**
+   * Updates the daemon's Home Assistant entities with the latest system information.
+   * @param info The latest Docker system info.
+   */
   async update(info: sdk.SystemInfoResponse) {
     await this.updateContainerCounts(info);
     await this.registerCommands();
   }
 
+  /**
+   * Unregisters all Home Assistant entities associated with the daemon.
+   * Called during application shutdown to clean up HA entities.
+   */
   async unregister() {
     await Promise.all([
         ...Object.values(this.sensors).map((sensor) => sensor.unregister()),
         ...Object.values(this.buttons).map((button) => button.unregister()),]);
   }
 
+  /**
+   * Updates the Home Assistant sensor for unhealthy containers.
+   * @param containers An iterable of ContainerWrapper instances to check for unhealthy status.
+   */
   async updateUnhealthyContainersList(containers: Iterable<ContainerWrapper>) {
     const unhealthyContainers = Array.from(containers).filter((container) => container.unhealthy);
 
@@ -64,6 +86,10 @@ export class DaemonWrapper {
     ]);
   }
 
+  /**
+   * Updates Home Assistant sensors for Docker container counts (running, paused, stopped).
+   * @param info The Docker system info containing container count data.
+   */
   private async updateContainerCounts(info: sdk.SystemInfoResponse) {
     this.sensors['running_containers'] ??= new Sensor(
       this.ha,
@@ -94,6 +120,10 @@ export class DaemonWrapper {
     await this.sensors['stopped_containers'].updateState(info.ContainersStopped ?? 0);
   }
 
+  /**
+   * Registers control buttons for the daemon (e.g., refresh state).
+   * These buttons allow users to trigger daemon-level actions from Home Assistant.
+   */
   private async registerCommands() {
     if (!config.ENABLE_CONTROL) {
       return;
@@ -108,7 +138,8 @@ export class DaemonWrapper {
       }),
       this.ha,
     ).on('command.json', () => {
-      // TODO: trigger refresh of all containers
+      // Trigger a full state reconciliation in the main application loop.
+      this.reconcileState();
     });
   }
 }

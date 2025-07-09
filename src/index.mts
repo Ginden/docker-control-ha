@@ -1,92 +1,82 @@
 import 'dotenv/config';
 
-import { createDockerApiClient } from './client.mjs';
+import { createDockerApiClient } from './docker-api-client.mjs';
 import { HaDiscoverableManager } from '@ginden/ha-mqtt-discoverable';
 import { mqttClient } from './mqtt.mjs';
-import { ContainerWrapper } from './container-wrapper.mjs';
-import { config } from './config.mjs';
+import { config } from './config/config.mjs';
 import { logger } from './logger.mjs';
-import { DaemonWrapper } from './daemon.js';
+import { DaemonWrapper } from './ha/daemon.mjs';
+import { ContainerManager } from './container-manager.mjs';
 
+// Initialize Docker API client for communication with the Docker daemon.
 const client = createDockerApiClient();
 
-const manager = HaDiscoverableManager.withSettings({
+// Initialize Home Assistant Discoverable Manager for MQTT discovery.
+// Log levels are downgraded to align with application's logging strategy.
+const haManager = HaDiscoverableManager.withSettings({
   client: mqttClient,
+  logger: {
+    debug: logger.trace.bind(logger),
+    info: logger.debug.bind(logger),
+    warn: logger.info.bind(logger),
+    error: logger.warn.bind(logger),
+  }
 });
 
-const containersMap: Record<string, ContainerWrapper> = {};
+// Initialize ContainerManager to handle Docker container entities in Home Assistant.
+const containerManager = new ContainerManager(haManager, client);
 
-async function getContainerDetails(containerId: string) {
-  try {
-    const containerDetails = await client.containerInspect({ path: { id: containerId } });
-    return containerDetails.data!;
-  } catch (error) {
-    console.error(`Failed to inspect container ${containerId}:`, error);
-    return null;
-  }
-}
+// DaemonWrapper instance, initialized only if daemon info exposure is enabled.
+let daemonWrapper: DaemonWrapper | null = null;
 
-let deamonWrapper: DaemonWrapper | null = null;
-
+/**
+ * Updates the Docker daemon's state in Home Assistant.
+ * Fetches system info and updates the DaemonWrapper, including unhealthy container list.
+ * This ensures Home Assistant reflects the overall health and status of the Docker daemon.
+ */
 async function updateDaemonState() {
+  if (!config.EXPOSE_DAEMON_INFO) {
+    return;
+  }
   const { data: systemInfo } = await client.systemInfo();
   if (!systemInfo) {
     logger.error({ msg: 'Failed to fetch system info' });
     return;
   }
-  deamonWrapper ??= new DaemonWrapper(manager,  systemInfo!);
-  await deamonWrapper.update(systemInfo!);
-  await deamonWrapper.updateUnhealthyContainersList(Object.values(containersMap));
+  // Initialize DaemonWrapper if it doesn't exist, passing the reconcileState function for refresh capability.
+  daemonWrapper ??= new DaemonWrapper(haManager, systemInfo!, reconcileState);
+  await daemonWrapper.update(systemInfo!);
+  // Update the list of unhealthy containers, crucial for daemon health monitoring.
+  await daemonWrapper.updateUnhealthyContainersList(containerManager.getUnhealthyContainers());
 }
 
-async function reloadContainersMap() {
-  logger.info({ msg: 'Reloading containers map' });
-  const { data: containers = [] } = await client.containerList({
-    query: { all: config.INCLUDE_DEAD_CONTAINERS },
-  });
-  const oldContainerIds = new Set(Object.keys(containersMap));
-  const currentContainerIds = new Set(containers.map((c) => c.Id!).filter(Boolean));
-  const removedContainerIds = [...oldContainerIds].filter((id) => !currentContainerIds.has(id));
-
-  if (removedContainerIds.length > 0) {
-    logger.info({ msg: `Removing deleted or stopped containers`, removedContainerIds });
-    await Promise.all(removedContainerIds.map(async (id) => containersMap[id].unregister()));
-  }
-
-  await Promise.all(
-    containers.map(async (container) => {
-      if (!container.Id) {
-        return; // Skip if no ID is present
-      }
-      const containerId = container.Id;
-      const containerInfo = await getContainerDetails(containerId);
-      if (!containerInfo) {
-        return; // Skip if container details could not be fetched
-      }
-
-      containersMap[containerId] ??= new ContainerWrapper(manager, containerInfo, client);
-      await containersMap[containerId].update(containerInfo);
-    }),
-  );
-  if (config.EXPOSE_DAEMON_INFO) {
-    await updateDaemonState();
-  }
+/**
+ * Main reconciliation loop. Triggers container state refresh and daemon state update.
+ * This function is called periodically to keep Home Assistant synchronized with Docker.
+ */
+async function reconcileState() {
+  await containerManager.refreshState();
+  await updateDaemonState();
 }
 
-function unregisterAll() {
-  logger.info({ msg: 'Unregistering all containers' });
-  const entities = [
-      ...Object.values(containersMap).map((wrapper) => wrapper.unregister()),
-        deamonWrapper ? deamonWrapper.unregister() : Promise.resolve(),
-  ]
-  return Promise.all(entities);
+/**
+ * Unregisters all Home Assistant entities managed by the application.
+ * Called during graceful shutdown to clean up entities in Home Assistant.
+ */
+async function unregisterAll() {
+  logger.info({ msg: 'Unregistering all entities' });
+  // Unregister both container and daemon entities concurrently.
+  return Promise.all([containerManager.unregisterAll(), daemonWrapper ? daemonWrapper.unregister() : Promise.resolve()]);
 }
 
+// Graceful shutdown handling for SIGINT and SIGTERM signals.
 const unregisterAllAndExit = () => unregisterAll().then(() => process.exit());
 
 process.on('SIGINT', unregisterAllAndExit);
 process.on('SIGTERM', unregisterAllAndExit);
 
-setInterval(() => reloadContainersMap().catch(console.error), config.POLLING_INTERVAL);
+// Start the periodic reconciliation loop.
+setInterval(() => reconcileState().catch(console.error), config.POLLING_INTERVAL);
 
-reloadContainersMap().catch(console.error);
+// Initial reconciliation call on application startup.
+reconcileState().catch(console.error);
