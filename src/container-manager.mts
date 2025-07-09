@@ -4,6 +4,7 @@ import { config } from './config/config.mjs';
 import { DockerApiClient } from './docker-api-client.mjs';
 import { ContainerWrapper } from './ha/container.mjs';
 import { logger } from './logger.mjs';
+import { assert } from 'tsafe';
 
 /**
  * Manages Docker containers as Home Assistant entities. Responsible for discovery,
@@ -29,9 +30,11 @@ export class ContainerManager {
   public async refreshState(): Promise<void> {
     logger.info({ msg: 'Reconciling container state' });
     // Fetch all containers, including dead ones if configured, for a complete comparison.
-    const { data: containers = [] } = await this.dockerApiClient.containerList({
+    const { data: containers = [], status } = await this.dockerApiClient.containerList({
       query: { all: config.INCLUDE_DEAD_CONTAINERS },
     });
+
+    assert(status === 200, `Failed to fetch containers: ${status}`);
 
     logger.debug({ msg: `Found ${containers.length} containers` });
 

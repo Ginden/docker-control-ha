@@ -101,6 +101,7 @@ export function createDockerApiClient(): typeof api {
       ret[key] = (firstArg: any, ...args: unknown[]) => {
         firstArg ??= {};
         firstArg.client ??= axiosClient; // Inject the custom Axios client.
+        firstArg.throwOnError ??= true; // Ensure errors are thrown by default.
         // @ts-expect-error We know what we're doing here.
         return value(firstArg, ...args);
       };
