@@ -39,11 +39,16 @@ function getSocketPath(): string {
     for (const context of contexts) {
       if (context.Endpoints?.docker) {
         logger.info({
-          msg: `Using Docker context`,
+          msg: `Using Docker context (first of ${contexts.length})`,
           contextName: context.Name,
           socketPath: context.Endpoints.docker.Host,
         });
-        return new URL(context.Endpoints.docker!.Host!).pathname;
+        const filePath = new URL(context.Endpoints.docker!.Host!).pathname;
+        assert(
+          statSync(filePath).isSocket(),
+          `Docker context socket path is not a socket: ${filePath}`,
+        );
+        return filePath;
       }
     }
 

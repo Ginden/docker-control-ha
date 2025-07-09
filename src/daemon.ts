@@ -1,4 +1,6 @@
 import {
+  Button,
+  ButtonInfo,
   DeviceInfo,
   HaDiscoverableManager,
   Sensor,
@@ -8,14 +10,17 @@ import { config } from './config.mjs';
 import slug from 'slug';
 import { sdk } from '@internal/docker-open-api';
 import { ContainerWrapper } from './container-wrapper.mjs';
+import { DockerApiClient } from './client.mjs';
 
-export const DAEMON_INFO_NAME = config.HA_DEVICE_ID_PREFIX + 'daemon_' + slug(config.DAEMON_CONTROLLER_NAME);
+export const DAEMON_INFO_NAME =
+  config.HA_DEVICE_ID_PREFIX + 'daemon_' + slug(config.DAEMON_CONTROLLER_NAME);
 
 export class DaemonWrapper {
   private readonly deviceInfo: DeviceInfo;
   private unhealthyContainers?: Sensor;
-  private sensors: Record<string, Sensor> = {}
-    private readonly identifier = DAEMON_INFO_NAME;
+  private sensors: Record<string, Sensor> = {};
+  private buttons: Record<string, Button> = {};
+  private readonly identifier = DAEMON_INFO_NAME;
 
   constructor(
     private readonly ha: HaDiscoverableManager,
@@ -29,8 +34,12 @@ export class DaemonWrapper {
   }
 
   async update(info: sdk.SystemInfoResponse) {
-      await this.updateContainerCounts(info);
+    await this.updateContainerCounts(info);
+    await this.registerCommands();
+  }
 
+  async unregister() {
+    await Promise.all(Object.values(sensors).map((sensor) => sensor.unregister()));
   }
 
   async updateUnhealthyContainersList(containers: Iterable<ContainerWrapper>) {
@@ -53,33 +62,51 @@ export class DaemonWrapper {
     ]);
   }
 
-    private async updateContainerCounts(info: sdk.SystemInfoResponse) {
-        this.sensors['running_containers'] ??= new Sensor(
-            this.ha,
-            SensorInfo.create({
-                name: 'Running Containers',
-                device: this.deviceInfo,
-                uniqueId: `${this.identifier}_running_containers`,
-            }),
-        );
-        await this.sensors['running_containers'].updateState(info.ContainersRunning ?? 0);
-        this.sensors['paused_containers'] ??= new Sensor(
-            this.ha,
-            SensorInfo.create({
-                name: 'Paused Containers',
-                device: this.deviceInfo,
-                uniqueId: `${this.identifier}_paused_containers`,
-            }),
-        );
-        await this.sensors['paused_containers'].updateState(info.ContainersPaused ?? 0);
-        this.sensors['stopped_containers'] ??= new Sensor(
-            this.ha,
-            SensorInfo.create({
-                name: 'Stopped Containers',
-                device: this.deviceInfo,
-                uniqueId: `${this.identifier}_stopped_containers`,
-            }),
-        );
-        await this.sensors['stopped_containers'].updateState(info.ContainersStopped ?? 0);
+  private async updateContainerCounts(info: sdk.SystemInfoResponse) {
+    this.sensors['running_containers'] ??= new Sensor(
+      this.ha,
+      SensorInfo.create({
+        name: 'Running Containers',
+        device: this.deviceInfo,
+        uniqueId: `${this.identifier}_running_containers`,
+      }),
+    );
+    await this.sensors['running_containers'].updateState(info.ContainersRunning ?? 0);
+    this.sensors['paused_containers'] ??= new Sensor(
+      this.ha,
+      SensorInfo.create({
+        name: 'Paused Containers',
+        device: this.deviceInfo,
+        uniqueId: `${this.identifier}_paused_containers`,
+      }),
+    );
+    await this.sensors['paused_containers'].updateState(info.ContainersPaused ?? 0);
+    this.sensors['stopped_containers'] ??= new Sensor(
+      this.ha,
+      SensorInfo.create({
+        name: 'Stopped Containers',
+        device: this.deviceInfo,
+        uniqueId: `${this.identifier}_stopped_containers`,
+      }),
+    );
+    await this.sensors['stopped_containers'].updateState(info.ContainersStopped ?? 0);
+  }
+
+  private async registerCommands() {
+    if (!config.ENABLE_CONTROL) {
+      return;
     }
+    this.buttons['refresh'] ??= new Button(
+      ButtonInfo.create({
+        name: 'Refresh state',
+        device: this.deviceInfo,
+        uniqueId: `${this.identifier}_reload`,
+        deviceClass: 'update',
+        expireAfter: config.POLLING_INTERVAL * 5,
+      }),
+      this.ha,
+    ).on('command.json', () => {
+      // TODO: trigger refresh of all containers
+    });
+  }
 }

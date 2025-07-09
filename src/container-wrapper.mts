@@ -16,7 +16,8 @@ import { assert } from 'tsafe';
 import { formatUptime } from './utils/format-uptime.mjs';
 import { calculateDeviceId } from './utils/calculate-device-id.mjs';
 import { logger } from './logger.mjs';
-import {DAEMON_INFO_NAME} from "./daemon.js";
+import { DAEMON_INFO_NAME } from './daemon.js';
+import { extractManufacturer, extractModel, extractSwVersion } from './utils/extract-info.mjs';
 
 type ContainerConstructOptions = {
   ha: HaDiscoverableManager;
@@ -69,20 +70,10 @@ export class ContainerWrapper {
     const deviceId = calculateDeviceId(data);
     const containerName = data.Name?.replace(/^\//, '') || data.Id;
     assert(containerName, 'Container must have a name or ID');
-    const labels = data.Config?.Labels || {};
-    const model =
-      labels['org.label-schema.name'] ??
-      labels['org.opencontainers.image.title'] ??
-      data.Config?.Image?.split(':').at(0) ??
-      'Docker Container';
+    const model = extractModel(data) ?? 'Docker Container';
 
-    const manufacturer =
-      labels['org.label-schema.vendor'] ?? labels['org.opencontainers.image.vendor'] ?? 'Docker';
-    const swVersion =
-      labels['org.label-schema.version'] ??
-      labels['org.opencontainers.image.version'] ??
-      data?.Config?.Image ??
-      'unknown';
+    const manufacturer = extractManufacturer(data) ?? 'Docker';
+    const swVersion = extractSwVersion(data) ?? 'unknown';
 
     this.deviceInfo = DeviceInfo.create({
       name: `Container ${containerName}`,
@@ -90,17 +81,17 @@ export class ContainerWrapper {
       identifiers: [deviceId],
       manufacturer,
       swVersion,
-        viaDevice: this.viaDevice,
+      viaDevice: this.viaDevice,
     });
   }
 
-  public async update(data: sdk.ContainerInspectResponse) {
+  public async update(data: sdk.ContainerInspectResponse): Promise<void> {
     logger.debug({ msg: `Updating container`, containerId: data.Id, containerName: data.Name });
     await this.constructSubEntities(data);
     await this.exposeCommands(data);
   }
 
-  public async unregister() {
+  public async unregister(): Promise<void> {
     logger.info({ msg: `Unregistering container`, container: this.deviceInfo.identifiers![0] });
     const subEntities = [
       this.running,
@@ -240,9 +231,26 @@ export class ContainerWrapper {
       });
     });
 
+    this.commands['pause'] ??= new Button(
+      ButtonInfo.create({
+        name: 'Pause',
+        device: this.deviceInfo,
+        uniqueId: `${this.deviceInfo.identifiers![0]}_pause`,
+        icon: 'mdi:pause',
+        expireAfter: config.POLLING_INTERVAL * 5,
+      }),
+      this.ha,
+    ).on('command.json', () => {
+      logger.info({ msg: `Pausing container`, containerId });
+      this.dockerApiClient.containerPause({ path: { id: containerId } }).catch((error) => {
+        logger.warn({ msg: `Failed to pause container`, error, containerId });
+      });
+    });
+
     this.commands['kill'] ??= new Button(
       ButtonInfo.create({
         name: 'Kill',
+        icon: 'mdi:skull',
         device: this.deviceInfo,
         uniqueId: `${this.deviceInfo.identifiers![0]}_kill`,
         expireAfter: config.POLLING_INTERVAL * 5,
@@ -258,6 +266,7 @@ export class ContainerWrapper {
     this.commands['stop'] ??= new Button(
       ButtonInfo.create({
         name: 'Stop',
+        icon: 'mdi:publish-off',
         device: this.deviceInfo,
         uniqueId: `${this.deviceInfo.identifiers![0]}_stop`,
         expireAfter: config.POLLING_INTERVAL * 5,
@@ -269,5 +278,23 @@ export class ContainerWrapper {
         logger.warn({ msg: `Failed to stop container`, error, containerId });
       });
     });
+
+    if (config.INCLUDE_DEAD_CONTAINERS) {
+      this.commands['start'] ??= new Button(
+        ButtonInfo.create({
+          name: 'Start',
+          icon: 'mdi:play',
+          device: this.deviceInfo,
+          uniqueId: `${this.deviceInfo.identifiers![0]}_start`,
+          expireAfter: config.POLLING_INTERVAL * 5,
+        }),
+        this.ha,
+      ).on('command.json', () => {
+        logger.info({ msg: `Starting container`, containerId });
+        this.dockerApiClient.containerStart({ path: { id: containerId } }).catch((error) => {
+          logger.warn({ msg: `Failed to start container`, error, containerId });
+        });
+      });
+    }
   }
 }

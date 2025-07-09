@@ -34,7 +34,7 @@ async function updateDaemonState() {
     logger.error({ msg: 'Failed to fetch system info' });
     return;
   }
-  deamonWrapper ??= new DaemonWrapper(manager, systemInfo!);
+  deamonWrapper ??= new DaemonWrapper(manager, client, systemInfo!);
   await deamonWrapper.update(systemInfo!);
   await deamonWrapper.updateUnhealthyContainersList(Object.values(containersMap));
 }
