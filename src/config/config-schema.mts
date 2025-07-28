@@ -49,7 +49,7 @@ export const envSchema = z.object({
   // ENABLE_CONTROL: Enables/disables container control actions from Home Assistant for safety.
   ENABLE_CONTROL: booleanFromEnv.default(false),
   // INCLUDE_DEAD_CONTAINERS: If true, includes stopped/exited containers in discovery for full monitoring.
-  INCLUDE_DEAD_CONTAINERS: z.coerce.boolean().default(false),
+  INCLUDE_DEAD_CONTAINERS: booleanFromEnv.default(false),
   // HA_DEVICE_ID_PREFIX: Prefix for all Home Assistant device IDs, for better organization.
   HA_DEVICE_ID_PREFIX: z.string().default(`docker_${hostname()}_`),
   // UPTIME_MEASURE_TYPE: How container uptime is displayed (e.g., "human" or "seconds").
@@ -66,6 +66,22 @@ export const envSchema = z.object({
   REQUIRE_LABEL_TO_EXPOSE: z.string().nullish().default(null),
   // DAEMON_CONTROLLER_NAME: Name of the Docker daemon device in Home Assistant.
   DAEMON_CONTROLLER_NAME: z.string().default(`Docker Daemon on ${hostname()}`),
+  // Allow additional identifiers for the daemon device, useful for multi-node setups.
+  // Hint: use host's MAC address to link multiple devices to the same Home Assistant entity.
+  DAEMON_ADDITIONAL_IDENTIFIERS: z
+    .string()
+    .nullish()
+    .default(null)
+    .transform((val) => {
+      return val
+        ? val
+            .trim()
+            .split(',')
+            .map((s) => s.trim())
+        : [];
+    }),
+
+  IDENTIFY_CONTAINERS_BY_MAC: booleanFromEnv.default(false),
 });
 
 export type Config = z.infer<typeof envSchema>;

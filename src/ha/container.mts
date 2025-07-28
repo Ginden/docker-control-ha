@@ -54,10 +54,17 @@ export class ContainerWrapper {
     const manufacturer = extractManufacturer(data) ?? 'Docker';
     const swVersion = extractSwVersion(data) ?? 'unknown';
 
+    const macAddresses = Object.values(
+      config.IDENTIFY_CONTAINERS_BY_MAC ? (data.NetworkSettings?.Networks ?? {}) : {},
+    )
+      .map((v) => v.MacAddress)
+      .filter((v) => typeof v === 'string')
+      .filter((v) => v.length > 0);
+
     this.deviceInfo = DeviceInfo.create({
       name: `Container ${containerName}`,
       model,
-      identifiers: [deviceId],
+      identifiers: [deviceId, ...macAddresses],
       manufacturer,
       swVersion,
       viaDevice: this.viaDevice,

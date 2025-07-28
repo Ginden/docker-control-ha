@@ -37,7 +37,7 @@ export class DaemonWrapper {
   ) {
     this.deviceInfo = DeviceInfo.create({
       name: config.DAEMON_CONTROLLER_NAME,
-      identifiers: [DAEMON_INFO_NAME],
+      identifiers: [DAEMON_INFO_NAME, ...config.DAEMON_ADDITIONAL_IDENTIFIERS].filter(Boolean),
       swVersion: info.ServerVersion,
     });
   }
