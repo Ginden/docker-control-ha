@@ -20,7 +20,9 @@ export const mqttClient = connect(mqttUrl, {
   ...(username && { username }),
   ...(password && { password }),
   clientId,
-  connectTimeout: 10_000,
+  connectTimeout: 60_000,
+  reconnectOnConnackError: true,
+  reconnectPeriod: 10_000,
   keepalive: 10,
   protocol,
 });
