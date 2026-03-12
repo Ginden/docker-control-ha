@@ -125,7 +125,7 @@ export class ContainerManager {
       });
       return containerDetails.data!;
     } catch (error) {
-      logger.error(`Failed to inspect container`, { containerId, error });
+      logger.error({ msg: 'Failed to inspect container', containerId, error });
       return null;
     }
   }

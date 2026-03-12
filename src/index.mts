@@ -43,7 +43,7 @@ async function updateDaemonState() {
     logger.error({ msg: 'Failed to fetch system info (empty response)' });
     return;
   }
-  logger.info({msg: 'Fetched system info, updating daemon state' });
+  logger.info({ msg: 'Fetched system info, updating daemon state' });
   // Initialize DaemonWrapper if it doesn't exist, passing the reconcileState function for refresh capability.
   daemonWrapper ??= new DaemonWrapper(haManager, systemInfo!, reconcileState);
   await daemonWrapper.update(systemInfo!);
