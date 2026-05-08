@@ -7,7 +7,7 @@
   },
   "devDependencies": {
     "@hey-api/client-axios": "^0.9.1",
-    "@hey-api/openapi-ts": "^0.77.0"
+    "@hey-api/openapi-ts": "^0.97.1"
   },
   "scripts": {
     "openapi:generate": "openapi-ts",
