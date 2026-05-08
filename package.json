@@ -28,6 +28,7 @@
   "homepage": "https://github.com/Ginden/docker-control-ha#readme",
   "devDependencies": {
     "@hey-api/client-axios": "^0.9.1",
+    "@hey-api/openapi-ts": "^0.97.1",
     "@types/node": "^22.16.0",
     "@types/slug": "^5.0.9",
     "eslint": "^9.30.1",
