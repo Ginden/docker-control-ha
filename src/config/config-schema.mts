@@ -48,7 +48,13 @@ export const envSchema = z.object({
   DOCKER_SOCKET_PATH: z.string().optional(),
   // ENABLE_CONTROL: Enables/disables container control actions from Home Assistant for safety.
   ENABLE_CONTROL: booleanFromEnv.default(false),
-  // INCLUDE_DEAD_CONTAINERS: If true, includes stopped/exited containers in discovery for full monitoring.
+  // CONTAINER_FILTER: CEL expression deciding which containers are exposed. Evaluated per
+  // container against a curated context (name, id, image, labels, running, status, health) plus
+  // `raw` (the full Docker inspect response). When unset, falls back to the deprecated
+  // INCLUDE_DEAD_CONTAINERS / REQUIRE_LABEL_TO_EXPOSE variables.
+  CONTAINER_FILTER: z.string().nullish().default(null),
+  // INCLUDE_DEAD_CONTAINERS: DEPRECATED, use CONTAINER_FILTER. If true, includes stopped/exited
+  // containers in discovery for full monitoring.
   INCLUDE_DEAD_CONTAINERS: booleanFromEnv.default(false),
   // HA_DEVICE_ID_PREFIX: Prefix for all Home Assistant device IDs, for better organization.
   HA_DEVICE_ID_PREFIX: z.string().default(`docker_${hostname()}_`),
@@ -62,7 +68,8 @@ export const envSchema = z.object({
 
   // EXPOSE_DAEMON_INFO: If true, exposes Docker daemon info as a Home Assistant device.
   EXPOSE_DAEMON_INFO: booleanFromEnv.default(false),
-  // REQUIRE_LABEL_TO_EXPOSE: If set, only containers with this label are exposed, allowing selective exposure.
+  // REQUIRE_LABEL_TO_EXPOSE: DEPRECATED, use CONTAINER_FILTER. If set, only containers with this
+  // label are exposed, allowing selective exposure.
   REQUIRE_LABEL_TO_EXPOSE: z.string().nullish().default(null),
   // DAEMON_CONTROLLER_NAME: Name of the Docker daemon device in Home Assistant.
   DAEMON_CONTROLLER_NAME: z.string().default(`Docker Daemon on ${hostname()}`),

@@ -43,12 +43,75 @@ Below is a list of all available options:
 | `HA_DEVICE_ID_PREFIX` | The prefix for the device IDs in Home Assistant. | `dcha_` |
 | `POLLING_INTERVAL` | The interval in milliseconds at which to poll the Docker daemon. | `10000` |
 | `ENABLE_CONTROL` | Whether to enable container control from Home Assistant. | `false` |
-| `INCLUDE_DEAD_CONTAINERS` | Whether to include dead containers in the discovery. | `false` |
-| `REQUIRE_LABEL_TO_EXPOSE` | A label that must be present on a container for it to be exposed to Home Assistant. | | 
+| `CONTAINER_FILTER` | A [CEL](#container-filtering-cel) expression deciding which containers are exposed. See [Container filtering](#container-filtering-cel). | |
+| `INCLUDE_DEAD_CONTAINERS` | **Deprecated** — use `CONTAINER_FILTER`. Whether to include dead containers in the discovery. | `false` |
+| `REQUIRE_LABEL_TO_EXPOSE` | **Deprecated** — use `CONTAINER_FILTER`. A label that must be present on a container for it to be exposed to Home Assistant. | | 
 | `EXPOSE_DAEMON_INFO` | Whether to expose information about the Docker daemon. | `true` |
 | `DAEMON_CONTROLLER_NAME` | The name of the Docker daemon device in Home Assistant. | `Docker Daemon` |
 | `UPTIME_MEASURE_TYPE` | The unit of measurement for container uptime. | `human` |
 | `CUSTOM_CONFIG_PATH` | The path to a custom configuration file. See [Configuration file](#configuration-file) for more details. | |
+
+## Container filtering (CEL)
+
+Which containers are exposed to Home Assistant is decided by a [Common Expression Language (CEL)](https://github.com/google/cel-spec) expression in `CONTAINER_FILTER`, evaluated once per container. If the expression returns `true`, the container is exposed; otherwise it is skipped (and unregistered if it was previously exposed).
+
+If `CONTAINER_FILTER` is not set, the deprecated `INCLUDE_DEAD_CONTAINERS` / `REQUIRE_LABEL_TO_EXPOSE` variables are used to derive an equivalent expression (with a deprecation warning). The default behavior remains "only running containers".
+
+### Available variables
+
+Each expression is evaluated against the following context:
+
+| Variable | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Container name, without the leading `/`. |
+| `id` | `string` | Full container ID. |
+| `image` | `string` | Image reference, e.g. `nginx:latest`. |
+| `labels` | `map<string,string>` | Container labels. |
+| `running` | `bool` | Whether the container is currently running. |
+| `status` | `string` | Container state, e.g. `running`, `exited`. |
+| `health` | `string \| null` | Health check status, e.g. `healthy`, or `null` if none. |
+| `raw` | `object` | The full Docker inspect response (PascalCase keys), as an escape hatch. |
+
+### Helper functions
+
+CEL itself has no string methods here, so these are provided as functions:
+
+| Function | Description |
+| --- | --- |
+| `startsWith(s, prefix)` | True if `s` starts with `prefix`. |
+| `endsWith(s, suffix)` | True if `s` ends with `suffix`. |
+| `contains(s, sub)` | True if `s` contains `sub`. |
+| `matches(s, regex)` | True if `s` matches the regular expression `regex`. |
+| `lower(s)` / `upper(s)` | Lower/upper-cased copy of `s`. |
+
+### Examples
+
+```bash
+# Only running containers (the default)
+CONTAINER_FILTER='running'
+
+# Only containers carrying a specific label set to "true"
+CONTAINER_FILTER='"expose.ha" in labels && labels["expose.ha"] == "true"'
+
+# Containers whose name starts with "web", including stopped ones
+CONTAINER_FILTER='startsWith(name, "web")'
+
+# Everything except a couple of noisy containers
+CONTAINER_FILTER='!(name in ["watchtower", "portainer"])'
+
+# Running containers from a given image, by regex
+CONTAINER_FILTER='running && matches(image, "^ghcr.io/myorg/")'
+
+# Exclude Testcontainers-managed containers (and dead ones)
+CONTAINER_FILTER='running && !("org.testcontainers" in labels)'
+
+# Using the raw inspect escape hatch
+CONTAINER_FILTER='raw.HostConfig.RestartPolicy.Name == "unless-stopped"'
+```
+
+> **Note:** indexing a missing map key throws. Guard with `in` first, e.g. `"k" in labels && labels["k"] == "v"`. If an expression errors while evaluating a container, that container is excluded and a warning is logged.
+
+> **Performance:** filters using only the curated fields (`name`, `id`, `image`, `labels`, `running`, `status`) are evaluated against Docker's cheap container *list*, so excluded containers — e.g. the many dead containers Testcontainers leaves behind — are never individually inspected. Filters that reference `health` or `raw` require inspecting every container on each poll, so prefer the curated fields when you have a large number of stopped containers.
 
 ## Docker Compose Example
 
@@ -153,7 +216,7 @@ For each discovered Docker container, a new device is created with the following
 - **Pause:** A button to pause the container.
 - **Kill:** A button to kill the container.
 - **Stop:** A button to stop the container.
-- **Start:** A button to start the container (only if `INCLUDE_DEAD_CONTAINERS` is `true`).
+- **Start:** A button to start the container.
 
 ### Daemon Entities
 

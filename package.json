@@ -41,6 +41,7 @@
   "dependencies": {
     "@ginden/ha-mqtt-discoverable": "^1.1.9",
     "axios": "^1.10.0",
+    "cel-js": "^0.8.2",
     "dotenv": "^17.0.1",
     "mqtt": "^5.13.1",
     "pino": "^9.7.0",

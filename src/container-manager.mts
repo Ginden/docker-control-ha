@@ -1,9 +1,13 @@
 import { HaDiscoverableManager } from '@ginden/ha-mqtt-discoverable';
 import { sdk } from '@internal/docker-open-api';
-import { config } from './config/config.mjs';
 import { DockerApiClient } from './docker-api-client.mjs';
 import { ContainerWrapper } from './ha/container.mjs';
 import { logger } from './logger.mjs';
+import {
+  filterNeedsInspect,
+  matchesContainerFilter,
+  matchesContainerSummary,
+} from './filter/container-filter.mjs';
 import { assert } from 'tsafe';
 
 /**
@@ -29,23 +33,70 @@ export class ContainerManager {
    */
   public async refreshState(): Promise<void> {
     logger.info({ msg: 'Reconciling container state' });
-    // Fetch all containers, including dead ones if configured, for a complete comparison.
+    // Fetch all containers (including stopped ones); the CONTAINER_FILTER expression decides
+    // which are actually exposed, so we must consider every container here.
     const { data: containers = [], status } = await this.dockerApiClient.containerList({
-      query: { all: config.INCLUDE_DEAD_CONTAINERS },
+      query: { all: true },
     });
 
     assert(status === 200, `Failed to fetch containers: ${status}`);
 
     logger.debug({ msg: `Found ${containers.length} containers` });
 
+    // Inspect each container and evaluate the filter. Only containers passing the filter are
+    // considered "current"; everything else is treated as absent (and unregistered if it was
+    // previously exposed, e.g. after a label change or the container stopping).
+    const matched = (
+      await Promise.all(
+        containers.map(async (container) => {
+          if (!container.Id) {
+            logger.debug({ msg: 'Skipping container with no ID', container });
+            return null;
+          }
+          const containerId = container.Id;
+
+          // Cheap pre-filter on the list summary to avoid inspecting excluded
+          // containers (e.g. thousands of dead testcontainers). Skipped only when
+          // the filter needs inspect-only fields (raw/health).
+          if (!filterNeedsInspect && !matchesContainerSummary(container)) {
+            logger.debug({
+              msg: `Skipping container ${containerId}: excluded by CONTAINER_FILTER (summary)`,
+              container: { id: containerId, name: container.Names },
+            });
+            return null;
+          }
+
+          // Fetch detailed info for HA entity creation/updates and authoritative filtering.
+          const containerInfo = await this.getContainerDetails(containerId);
+          if (!containerInfo) {
+            logger.debug({
+              msg: `Skipping container ${containerId} due to missing details`,
+              container: { id: containerId, name: container.Names },
+            });
+            return null;
+          }
+
+          if (!matchesContainerFilter(containerInfo)) {
+            logger.debug({
+              msg: `Skipping container ${containerId}: excluded by CONTAINER_FILTER`,
+              container: { id: containerId, name: container.Names },
+            });
+            return null;
+          }
+
+          return { containerId, containerInfo };
+        }),
+      )
+    ).filter((entry) => entry !== null);
+
     // Use sets for efficient identification of added, removed, and existing containers.
     const oldContainerIds = new Set(Object.keys(this.containersMap));
-    const currentContainerIds = new Set(containers.map((c) => c.Id!).filter(Boolean));
+    const currentContainerIds = new Set(matched.map(({ containerId }) => containerId));
     const removedContainerIds = [...oldContainerIds].filter((id) => !currentContainerIds.has(id));
 
-    // Unregister stale entities from Home Assistant.
+    // Unregister entities that no longer exist or no longer match the filter.
     if (removedContainerIds.length > 0) {
-      logger.info({ msg: `Removing deleted or stopped containers`, removedContainerIds });
+      logger.info({ msg: `Removing deleted, stopped or filtered-out containers`, removedContainerIds });
       await Promise.all(
         removedContainerIds.map(async (id) => {
           await this.containersMap[id].unregister();
@@ -54,36 +105,9 @@ export class ContainerManager {
       );
     }
 
-    // Process each current container: add new ones, update existing ones.
+    // Process each matched container: add new ones, update existing ones.
     await Promise.all(
-      containers.map(async (container) => {
-        if (!container.Id) {
-          logger.debug({ msg: 'Skipping container with no ID', container });
-          return;
-        }
-        const containerId = container.Id;
-        // Fetch detailed info for HA entity creation/updates.
-        const containerInfo = await this.getContainerDetails(containerId);
-        if (!containerInfo) {
-          logger.debug({
-            msg: `Skipping container ${containerId} due to missing details`,
-            container: { id: containerId, name: container.Names },
-          });
-          return;
-        }
-
-        // Skip containers without the required label if configured, for selective exposure.
-        if (
-          config.REQUIRE_LABEL_TO_EXPOSE &&
-          !containerInfo.Config?.Labels?.[config.REQUIRE_LABEL_TO_EXPOSE]
-        ) {
-          logger.debug({
-            msg: `Skipping container ${containerId} due to missing required label`,
-            containerInfo,
-          });
-          return;
-        }
-
+      matched.map(async ({ containerId, containerInfo }) => {
         // Create or retrieve ContainerWrapper for the Docker container.
         this.containersMap[containerId] ??= new ContainerWrapper(
           this.ha,

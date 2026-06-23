@@ -283,22 +283,21 @@ export class ContainerWrapper {
       });
     });
 
-    if (config.INCLUDE_DEAD_CONTAINERS) {
-      this.commands['start'] ??= new Button(
-        ButtonInfo.create({
-          name: 'Start',
-          icon: 'mdi:play',
-          device: this.deviceInfo,
-          uniqueId: `${this.deviceInfo.identifiers![0]}_start`,
-          expireAfter: config.POLLING_INTERVAL * 5,
-        }),
-        this.ha,
-      ).on('command.json', () => {
-        logger.info({ msg: `Starting container`, containerId });
-        this.dockerApiClient.containerStart({ path: { id: containerId } }).catch((error) => {
-          logger.warn({ msg: `Failed to start container`, error, containerId });
-        });
+    // Always expose Start: with CONTAINER_FILTER, stopped containers can be exposed too.
+    this.commands['start'] ??= new Button(
+      ButtonInfo.create({
+        name: 'Start',
+        icon: 'mdi:play',
+        device: this.deviceInfo,
+        uniqueId: `${this.deviceInfo.identifiers![0]}_start`,
+        expireAfter: config.POLLING_INTERVAL * 5,
+      }),
+      this.ha,
+    ).on('command.json', () => {
+      logger.info({ msg: `Starting container`, containerId });
+      this.dockerApiClient.containerStart({ path: { id: containerId } }).catch((error) => {
+        logger.warn({ msg: `Failed to start container`, error, containerId });
       });
-    }
+    });
   }
 }
